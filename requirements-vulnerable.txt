@@ -1,0 +1,4 @@
+# Intentionally outdated dependencies for dependency-scanner testing only.
+# Do not install these packages or use this file in a real application.
+PyYAML==5.3.1
+requests==2.19.0
