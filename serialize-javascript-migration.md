@@ -189,18 +189,20 @@ wrong install is visible rather than silently green.
 
 It takes the directory of an installed copy of the package as its first argument or from
 `SERIALIZE_JAVASCRIPT_DIR` — one of the two is required, because this checkout never holds
-`node_modules` and a bare `require()` could not resolve. Install the target release into such a
-directory outside the checkout, run the check, then repeat against an affected release to prove that the
-check discriminates:
+`node_modules` and a bare `require()` could not resolve. Create that directory freshly and privately
+(`mktemp -d`, as below), because a predictable path under a shared parent lets another local process
+substitute `node_modules/serialize-javascript` — which would both execute its code and forge a `PASS`.
+Install the target release into such a directory outside the checkout, run the check, then repeat
+against an affected release to prove that the check discriminates:
 
 ```console
-$ dir="${TMPDIR:-/tmp}/serialize-javascript-check"
+$ dir="$(mktemp -d)"
 $ npm install --prefix "$dir" --no-audit --no-fund serialize-javascript@7.1.4
 $ SERIALIZE_JAVASCRIPT_DIR="$dir" node serialize-javascript-xss-check.js
 serialize-javascript version: 7.1.4
 PASS: closing-script prefix neutralised (GHSA-m5mm-p8h7-m29v)
 
-$ vuln="${TMPDIR:-/tmp}/serialize-javascript-check-vuln"
+$ vuln="$(mktemp -d)"
 $ npm install --prefix "$vuln" --no-audit --no-fund serialize-javascript@1.4.0
 $ SERIALIZE_JAVASCRIPT_DIR="$vuln" node serialize-javascript-xss-check.js
 serialize-javascript version: 1.4.0
