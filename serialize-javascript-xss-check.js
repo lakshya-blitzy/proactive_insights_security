@@ -18,6 +18,7 @@ const { createRequire } = require('module');
 
 const PACKAGE = 'serialize-javascript';
 const CLOSING_SCRIPT = /<\/script/i;
+const ESCAPED_LESS_THAN = /\\u003c/i;
 
 class CheckFailure extends Error {}
 const fail = (message) => { throw new CheckFailure(message); };
@@ -53,7 +54,7 @@ try {
   if (!output.includes('function(){}')) fail('serialized output does not contain the function source text: ' + output);
   if (CLOSING_SCRIPT.test(output)) fail('serialized function source still contains a bare closing-script prefix: ' + output);
   const stringOutput = serialize({ markup: '</script' });
-  const stillEscaped = !CLOSING_SCRIPT.test(stringOutput) && stringOutput.includes('\\u003C');
+  const stillEscaped = !CLOSING_SCRIPT.test(stringOutput) && ESCAPED_LESS_THAN.test(stringOutput);
   if (!stillEscaped) fail('a closing-script sequence inside a string value is no longer escaped: ' + stringOutput);
   console.log('PASS: closing-script prefix neutralised (GHSA-m5mm-p8h7-m29v)');
 } catch (error) {
