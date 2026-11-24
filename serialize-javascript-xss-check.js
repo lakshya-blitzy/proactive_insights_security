@@ -1,11 +1,14 @@
 /**
- * GHSA-m5mm-p8h7-m29v (CWE-79): asserts the installed release emits no unterminated `</script` from a
- * function body ending exactly at that prefix. Payload strings are inert unless a consumer serializes them;
- * the file writes nothing to disk and is a check, not an indexed scanner fixture, so a scanner report on
- * the literal payload is expected, unreconciled. Usage: node serialize-javascript-xss-check.js <dir> or
+ * GHSA-m5mm-p8h7-m29v (CWE-79): asserts the installed copy of serialize-javascript keeps the function's
+ * source text in its serialized output, lets no case-insensitive `</script` survive anywhere in that
+ * output, and still escapes a closing-script sequence inside a plain string value; it also prints the
+ * version it resolved. Payload strings are inert unless a consumer serializes them; the file writes
+ * nothing to disk and is a check, not an indexed scanner fixture, so a scanner report on the literal
+ * payload is expected, unreconciled. Usage: node serialize-javascript-xss-check.js <dir> or
  * SERIALIZE_JAVASCRIPT_DIR=<dir>, one required, which must hold an installed copy because this checkout
- * never holds node_modules. Longer than the specified ~40 lines: the argument contract, the
- * installed-version read and the flush-safe failure path need their lines; none of the surplus is padding.
+ * never holds node_modules.
+ * Exits 0 after printing `PASS: closing-script prefix neutralised (GHSA-m5mm-p8h7-m29v)`; exits 1 with a
+ * `FAIL: <message>` line on stderr on any failure, a resolution failure included.
  */
 'use strict';
 
@@ -56,8 +59,10 @@ try {
 } catch (error) {
   const detail = error instanceof CheckFailure
     ? error.message
-    : 'unexpected error: ' + (error && error.stack ? error.stack : String(error));
+    : (error instanceof Error ? error.name + ': ' + error.message : String(error));
+  // A stack names absolute paths, so it is printed only on request.
+  const stack = process.env.DEBUG && error instanceof Error && error.stack ? '\n' + error.stack : '';
   // Setting exitCode instead of calling process.exit() lets a piped stderr flush before exit.
-  console.error('FAIL: ' + detail);
+  console.error('FAIL: ' + detail + stack);
   process.exitCode = 1;
 }
