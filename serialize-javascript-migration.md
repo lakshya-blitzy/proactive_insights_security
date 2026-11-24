@@ -179,13 +179,14 @@ declared for scanning and verification rather than for application use.
 `serialize-javascript-xss-check.js` is the executable proof for this advisory. It makes two
 serializations. The first is the payload: an object whose `handler` is a function with a spoofed
 `toString()` returning `function(){}</script`, together with a `markup` string of
-`><img src=x onerror=alert(1)>`, which supplies the markup a terminated script element would expose. The
-second is the escaping control: `{ markup: '</script' }`, a plain string value carrying a closing-script
-sequence. Against the first it asserts that the function's source text (`function(){}`) is present — so a
-serializer that dropped the function cannot pass vacuously — and that no closing-script sequence survives
-anywhere in the output; against the second it asserts that a closing-script sequence inside a plain
-string value is still escaped. It also prints the version it actually resolved, so a run against the
-wrong install is visible rather than silently green.
+`><img src=x onerror=alert(1)>` — the markup such a payload would expose, escaped here because
+string values are escaped in every release, so the discriminator is the surviving closing-script
+prefix alone. The second is the escaping control: `{ markup: '</script' }`, a plain string value
+carrying a closing-script sequence. Against the first it asserts that the function's source text
+(`function(){}`) is present — so a serializer that dropped the function cannot pass vacuously — and
+that no closing-script sequence survives anywhere in the output; against the second it asserts that a
+closing-script sequence inside a plain string value is still escaped. It also prints the version it
+actually resolved, so a run against the wrong install is visible rather than silently green.
 
 It takes the directory of an installed copy of the package as its first argument or from
 `SERIALIZE_JAVASCRIPT_DIR` — one of the two is required, because this checkout never holds
