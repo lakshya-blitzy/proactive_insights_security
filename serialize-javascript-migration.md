@@ -4,10 +4,13 @@ This note records the breaking changes between `serialize-javascript` 1.4.0 and 
 `package.json` in this repository now declares to resolve `GHSA-m5mm-p8h7-m29v`. It is written for
 whoever consumes that manifest next.
 
-The repository holds no call site for any change listed here: there is no JavaScript or TypeScript
-source, no `require()` of the package, and no reference to its name anywhere in the tracked tree. The
-delta is therefore recorded for consumers rather than applied to code, `package.json` carries the
-declaration, and `serialize-javascript-xss-check.js` carries the executable proof.
+No application code here calls the package, so there is no call site to edit for any change listed
+below: before this change the tracked tree held no JavaScript or TypeScript source and no reference to
+the package at all. The references that now exist belong to the fix rather than to application code —
+the exact pin in `package.json`, its resolution in `package-lock.json`, and
+`serialize-javascript-xss-check.js`, which resolves an installed copy from a directory outside this
+checkout rather than from the repository. The delta is therefore recorded for consumers rather than
+applied to code: `package.json` carries the declaration and the check carries the executable proof.
 
 ## 1. Finding record
 
@@ -54,12 +57,13 @@ separates the two releases, so `7.1.4` removes that defect for nothing. `7.1.4` 
 `npm audit` itself proposes for this pin (`fixAvailable: { name: "serialize-javascript", version:
 "7.1.4", isSemVerMajor: true }`), so the manifest and the remediation advice agree.
 
-## 3. The sixteen deltas from 1.4.0 to 7.1.4
+## 3. The twenty-three deltas from 1.4.0 to 7.1.4
 
 Every breaking API, option, export-shape, default and security-relevant behavioural change across the
-span is listed below, including every security release on the lines it crosses. The call site for each
-row is none in this repository — there is no code to edit — so the last column states what a consumer of
-this manifest meets when it upgrades.
+span is listed below, including every security release on the lines it crosses. No application code here
+calls the package, so no row has a call site to edit; the only code that calls it is
+`serialize-javascript-xss-check.js`, which serializes two fixed payloads to assert the escaping
+invariant. The last column therefore states what a consumer of this manifest meets when it upgrades.
 
 | # | Change | Introduced in | Call site in this repository | What a consumer needs to know |
 |---|---|---|---|---|
@@ -71,14 +75,21 @@ this manifest meets when it upgrades.
 | 6 | `BigInt` serializes as `BigInt("…")` | 4.0.0 | None in this repository | — |
 | 7 | Sparse arrays serialize as `Array.prototype.slice.call({…})` | 5.0.0 | None in this repository | — |
 | 8 | `URL` instances serialize as `new URL(…)` | 6.0.0 | None in this repository | — |
-| 9 | `randombytes` dependency removed in favour of `crypto.getRandomValues`; 7.x declares no dependencies at all | 7.0.0 | None in this repository | Also removes the `randombytes` advisory exposure that 6.0.0 and 6.0.1 carried through that dependency |
+| 9 | `randombytes` dependency removed in favour of `crypto.getRandomValues`; 7.x declares no dependencies at all | 7.0.0 | None in this repository | `randombytes` was the only dependency on the line, so from 7.0.0 onward this dependency pulls nothing into an install and nothing sits beneath it to audit |
 | 10 | Node.js `>=20.0.0` required | 7.0.0 | None in this repository | Recorded in the manifest's `engines` field; see section 7 |
 | 11 | Dates with expanded ISO years serialize correctly | 7.1.3 | None in this repository | — |
 | 12 | Concise methods (plain, async, generator, computed-key) containing nested functions or arrows serialize correctly | 7.1.4 | None in this repository | The reason the target is 7.1.4 rather than 7.1.3 (section 2) |
 | 13 | XSS bypass through a `</script` payload split across function bodies is closed | 7.1.1 | None in this repository | Security fix released without an advisory identifier in its notes (PR #226) |
 | 14 | Unescaped `</script>` inside a serialized function body is closed — `GHSA-gfhx-hw2g-v5hg`, CVE-2026-97711, affecting 7.1.1 only | 7.1.2 | None in this repository | Second security release on this line, so no pin below 7.1.3 is safe for any reason |
-| 15 | Cross-site scripting advisory against the 6.0 line is closed — `GHSA-76p7-773f-r4q5`, CVE-2024-11831, affecting 6.0.0 and 6.0.1 | 6.0.2 | None in this repository | Security fix on the 6.x line this upgrade crosses |
+| 15 | Cross-site scripting advisory against the 6.0 line is closed — `GHSA-76p7-773f-r4q5`, CVE-2024-11831, affecting 6.0.0 and 6.0.1 | 6.0.2 | None in this repository | Security fix on the 6.x line this upgrade crosses: a `URL`'s serialized string is escaped, so 6.0.0's `new URL("https://example.com/a?b=c")` becomes `new URL("https:\u002F\u002Fexample.com\u002Fa?b=c")` from 6.0.2 on |
 | 16 | CPU-exhaustion denial of service through crafted array-like objects is closed — `GHSA-qj8w-gfj5-8c6v` | 7.0.5 | None in this repository | DoS fix on the 7.0 line this upgrade crosses |
+| 17 | Method shorthand serializes as a standalone function expression: `m() { … }` becomes `function() { … }`, with `async` and `*` carried across | 1.6.0 | None in this repository | Output-shape change: the previous form is not valid as a standalone expression, so a consumer that asserted on `m() { … }` source text no longer matches |
+| 18 | `Map` instances serialize as `new Map([…])`; before 1.7.0 no branch handled a `Map`, which fell through to `{}` | 1.7.0 | None in this repository | Output-shape change: `{}` becomes an evaluable `new Map([[key, value], …])`, which is not JSON |
+| 19 | `Set` instances serialize as `new Set([…])`; before 1.7.0 no branch handled a `Set`, which fell through to `{}` | 1.7.0 | None in this repository | Output-shape change, as for `Map`: `{}` becomes an evaluable `new Set([…])`, which is not JSON |
+| 20 | `RegExp` instances serialize as `new RegExp(<escaped source>, "<flags>")`; 1.4.0 through 2.1.0 emitted the bare literal from `regexp.toString()`, which left markup inside a regular expression unescaped. Closes the cross-site scripting advisory `GHSA-h9rv-jmmf-4pgx`, CVE-2019-16769, affecting `<2.1.1` | 2.1.1 | None in this repository | Output-shape and security change: `/…/` literal text becomes an escaped `new RegExp(…)`, so a consumer matching the old literal form, or relying on markup surviving in a regular expression, sees different output |
+| 21 | Placeholder substitution hardened: a placeholder preceded by a backslash is no longer substituted, and the per-run identifier becomes a 16-byte random value instead of a `Math.random()`-derived one. Closes the code-injection advisory `GHSA-hxcc-f52p-wc94`, CVE-2020-7660, affecting `<3.1.0` | 3.1.0 | None in this repository | Security fix: a crafted pair of values can no longer escape its string context by reproducing the identifier inside an escaped placeholder. This release also adds the `randombytes` dependency that 7.0.0 removes (row 9) |
+| 22 | Code injection through `RegExp.prototype.flags` and a spoofed `Date.prototype.toISOString()` is closed — `GHSA-5c6j-r48x-rmvq`, affecting `<=7.0.2` | 7.0.3 | None in this repository | Security fix: `flags` are filtered to the valid `gimsuydv` characters and a Date's ISO string must match the ISO pattern, so a value carrying a spoofed `flags` or `toISOString()` is sanitised or throws `TypeError: Invalid Date ISO string` instead of emitting executable source. That validation also rejects the expanded ISO years earlier releases emitted, which 7.1.3 restores (row 11) |
+| 23 | Unescaped `</script` at the end of a serialized function body is escaped — `GHSA-m5mm-p8h7-m29v`, CVE-2026-115897, affecting `<7.1.3` | 7.1.3 | None in this repository | The fix this note exists to record (section 1): the prefix is broken by an inserted space, so no closing-script sequence survives in the output |
 
 ## 4. Confirmed unchanged across the span — no migration needed
 
@@ -112,7 +123,7 @@ findings to none rather than from four to three.
 | Advisory or fix | CVE | Affected range | Severity |
 |---|---|---|---|
 | `GHSA-76p7-773f-r4q5` | CVE-2024-11831 | `>=6.0.0, <6.0.2` | Moderate |
-| `GHSA-qj8w-gfj5-8c6v` | — | fixed in `7.0.5` | — |
+| `GHSA-qj8w-gfj5-8c6v` | CVE-2026-34043 | `>=5.0.0`, fixed in `7.0.5` | Moderate |
 | `GHSA-gfhx-hw2g-v5hg` | CVE-2026-97711 | `7.1.1` only, fixed in `7.1.2` | CVSS v4 `AV:N/AC:L/AT:P/PR:N/UI:P` |
 | Split-`</script` bypass fix (PR #226) | — | fixed in `7.1.1` | — |
 
@@ -165,15 +176,43 @@ Use this repository only in an isolated test repository. Do not install the outd
 or deploy the code. The Python pins are deliberate scanner fixtures, and the JavaScript dependency is
 declared for scanning and verification rather than for application use.
 
-`serialize-javascript-xss-check.js` is the executable proof for this advisory. It serializes a function
-whose source text ends exactly at the bare closing-script prefix together with a plain string carrying
-the same sequence as an escaping control, then asserts that no closing-script sequence survives and that
-the string is still escaped. It takes the directory of an installed copy of the package as its first
-argument or from `SERIALIZE_JAVASCRIPT_DIR` — one of the two is required, because this checkout never
-holds `node_modules` and a bare `require` could not resolve — and it prints the version it actually
-resolved. A fixed install exits `0` with `PASS: closing-script prefix neutralised (GHSA-m5mm-p8h7-m29v)`;
-an affected install such as 1.4.0 exits `1` with `FAIL: serialized function source still contains a bare
-closing-script prefix`. Running it against both is what proves it distinguishes fixed from vulnerable.
+`serialize-javascript-xss-check.js` is the executable proof for this advisory. It makes two
+serializations. The first is the payload: an object whose `handler` is a function with a spoofed
+`toString()` returning `function(){}</script`, together with a `markup` string of
+`><img src=x onerror=alert(1)>`, which supplies the markup a terminated script element would expose. The
+second is the escaping control: `{ markup: '</script' }`, a plain string value carrying a closing-script
+sequence. Against the first it asserts that the function's source text (`function(){}`) is present — so a
+serializer that dropped the function cannot pass vacuously — and that no closing-script sequence survives
+anywhere in the output; against the second it asserts that a closing-script sequence inside a plain
+string value is still escaped. It also prints the version it actually resolved, so a run against the
+wrong install is visible rather than silently green.
+
+It takes the directory of an installed copy of the package as its first argument or from
+`SERIALIZE_JAVASCRIPT_DIR` — one of the two is required, because this checkout never holds
+`node_modules` and a bare `require()` could not resolve. Install the target release into such a
+directory outside the checkout, run the check, then repeat against an affected release to prove that the
+check discriminates:
+
+```console
+$ dir="${TMPDIR:-/tmp}/serialize-javascript-check"
+$ npm install --prefix "$dir" --no-audit --no-fund serialize-javascript@7.1.4
+$ SERIALIZE_JAVASCRIPT_DIR="$dir" node serialize-javascript-xss-check.js
+serialize-javascript version: 7.1.4
+PASS: closing-script prefix neutralised (GHSA-m5mm-p8h7-m29v)
+
+$ vuln="${TMPDIR:-/tmp}/serialize-javascript-check-vuln"
+$ npm install --prefix "$vuln" --no-audit --no-fund serialize-javascript@1.4.0
+$ SERIALIZE_JAVASCRIPT_DIR="$vuln" node serialize-javascript-xss-check.js
+serialize-javascript version: 1.4.0
+FAIL: serialized function source still contains a bare closing-script prefix: {…}
+```
+
+The fixed run exits `0` and the affected run exits `1`; running both is what proves the check
+distinguishes fixed from vulnerable. The directory may equally be passed as the first argument —
+`node serialize-javascript-xss-check.js "$dir"` — which is equivalent to the environment variable. With
+neither given the check exits `1` with `FAIL: no install directory given (pass it as the first argument
+or set SERIALIZE_JAVASCRIPT_DIR)`, and pointed at a directory that holds no installed copy it exits `1`
+with `FAIL: cannot resolve serialize-javascript from <dir>`.
 
 The check is deliberately **not** listed in `security_fixture/README.md`. That index enumerates
 deliberately vulnerable samples for scanners to flag, and this file is a check rather than a fixture, so
