@@ -1,0 +1,12 @@
+{
+  "name": "proactive-insights-security",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Security scanner fixture corpus. Deliberately vulnerable samples only; not for deployment.",
+  "dependencies": {
+    "serialize-javascript": "7.1.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
